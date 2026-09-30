@@ -1,0 +1,105 @@
+{
+  "icon": "icon.svg",
+  "main": "runtime/index.js",
+  "indexState": "scoped",
+  "uiSlots": {
+    "left_sidebar": "workspace.panel",
+    "footer": "workspace.footer"
+  },
+  "slotDefaults": {
+    "left_sidebar": {
+      "order": 100
+    },
+    "footer": {
+      "side": "left",
+      "order": 20
+    }
+  },
+  "settingsSchema": {
+    "fields": [
+      {
+        "key": "saveRightSidebarState",
+        "label": "Include right sidebar in new layouts",
+        "labelKey": "plugin.workspace.setting.saveRightSidebarState",
+        "type": "boolean",
+        "default": false,
+        "description": "New layouts save the right sidebar’s visibility, width, panels, splits, and selected tab. Plugin content such as playlists remains independent.",
+        "descriptionKey": "plugin.workspace.setting.saveRightSidebarStateDesc"
+      },
+      {
+        "key": "saveIconRail",
+        "label": "Include Icon Rail in new layouts",
+        "labelKey": "plugin.workspace.setting.saveIconRail",
+        "type": "boolean",
+        "default": false,
+        "description": "New layouts save Icon Rail visibility, panel order, and hidden items. Each layout can change this while saving or from its Includes menu.",
+        "descriptionKey": "plugin.workspace.setting.saveIconRailDesc"
+      },
+      {
+        "key": "saveFooterRail",
+        "label": "Include footer in new layouts",
+        "labelKey": "plugin.workspace.setting.saveFooterRail",
+        "type": "boolean",
+        "default": false,
+        "description": "New layouts save footer visibility and the left, right, and hidden item arrangement. Each layout can change this while saving or from its Includes menu.",
+        "descriptionKey": "plugin.workspace.setting.saveFooterRailDesc"
+      }
+    ]
+  },
+  "guardPresets": {
+    "schemaVersion": 1,
+    "defaultPreset": "recommended",
+    "presets": [
+      {
+        "id": "recommended",
+        "label": "Recommended",
+        "version": 1,
+        "description": "Local workspace layout changes are reversible and run without asking.",
+        "entries": {
+          "commands": {
+            "save": {
+              "decision": "allow"
+            },
+            "load": {
+              "decision": "allow"
+            },
+            "open": {
+              "decision": "allow"
+            },
+            "rename": {
+              "decision": "allow"
+            },
+            "delete": {
+              "decision": "allow"
+            },
+            "close": {
+              "decision": "allow"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "provides": [
+    {
+      "id": "workspace.surface",
+      "kind": "extension",
+      "version": "1.0.0"
+    },
+    {
+      "id": "workspace.bookmark",
+      "kind": "service",
+      "version": "1.0.0"
+    }
+  ],
+  "locales": {
+    "en": "runtime/locales/en.json",
+    "de": "runtime/locales/de.json",
+    "es": "runtime/locales/es.json",
+    "fr": "runtime/locales/fr.json",
+    "zh-CN": "runtime/locales/zh-CN.json"
+  },
+  "runtime": {
+    "ui": "runtime/index.js"
+  }
+}
