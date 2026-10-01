@@ -43,6 +43,17 @@
         "default": false,
         "description": "New layouts save footer visibility and the left, right, and hidden item arrangement. Each layout can change this while saving or from its Includes menu.",
         "descriptionKey": "plugin.workspace.setting.saveFooterRailDesc"
+      },
+      {
+        "key": "active",
+        "label": "Active workspace",
+        "type": "custom",
+        "settingsVisible": false,
+        "schema": {
+          "type": "string"
+        },
+        "readOnly": true,
+        "description": "Owner-managed runtime state; change it through the owning domain operation."
       }
     ]
   },
