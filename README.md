@@ -32,3 +32,7 @@ npm run check
 The check validates types and package boundaries, runs the package tests, and rebuilds `runtime/`. It requires no Valley source checkout. Keep the rebuilt runtime, locale files, dependency lock, and vendored tools with each release. Increment the package and manifest versions together.
 
 Valley release maintainers explicitly import the compiled artifact into the application’s `plugins.lock.json`; building Valley does not build or read this repository. All privileged work uses declared SDK capabilities, authenticated IPC, and explicit grants. Disabling or unloading the plugin releases its subscriptions and resources.
+
+## Workflow integration
+
+Explicit Workflow blocks reuse this package’s published owner commands through the authenticated SDK command bridge. Configure the application window and required targets before running. Schemas and owner identities are pinned; contract changes require reloading the integration. Writes retain existing grants, revision checks, undo behavior and authoritative receipts. Preview and block insertion perform no commands.

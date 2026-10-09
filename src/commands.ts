@@ -9,15 +9,279 @@
  * assistant all stay in sync. Write commands return a `revert` so the bus owns one
  * ⌘Z entry each.
  */
-import type { ValleyPluginApi } from '@valley/plugin-sdk'
+import type { PluginCommand, ValleyPluginApi } from '@valley/plugin-sdk'
+import type { CommandSideEffect } from '@valley/plugin-sdk/commands'
 import type { WorkspaceLayoutSnapshot } from '@valley/plugin-sdk/types'
-import { getStore, scopesOf, type SavedLayout, type WorkspaceStore } from './store'
+import { getStore, notApplied, scopesOf, type SavedLayout, type WorkspaceStore } from './store'
 import { openManager } from './surfaces'
 
 function live(): WorkspaceStore {
   const store = getStore()
   if (!store) throw new Error('Workspace store is not ready.')
   return store
+}
+
+export const workspaceResults: Record<string, Record<string, unknown>> = {
+  "save": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 65536
+      },
+      "group": {
+        "type": "string",
+        "maxLength": 65536
+      }
+    },
+    "required": [
+      "name",
+      "group"
+    ],
+    "additionalProperties": false
+  },
+  "save-active": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 65536
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "load": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 65536
+      },
+      "cancelled": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "open": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 65536
+      },
+      "cancelled": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "delete": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 65536
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "close": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 65536
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "rename": {
+    "type": "object",
+    "properties": {
+      "from": {
+        "type": "string",
+        "maxLength": 65536
+      },
+      "to": {
+        "type": "string",
+        "maxLength": 65536
+      }
+    },
+    "required": [
+      "from",
+      "to"
+    ],
+    "additionalProperties": false
+  },
+  "list": {
+    "type": "object",
+    "properties": {
+      "active": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 65536
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "layouts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "group": {
+              "type": "string",
+              "maxLength": 65536
+            }
+          },
+          "required": [
+            "name",
+            "group"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 10000
+      }
+    },
+    "required": [
+      "active",
+      "layouts"
+    ],
+    "additionalProperties": false
+  },
+  "deselect": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 65536
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "group-create": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 65536
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "group-rename": {
+    "type": "object",
+    "properties": {
+      "from": {
+        "type": "string",
+        "maxLength": 65536
+      },
+      "to": {
+        "type": "string",
+        "maxLength": 65536
+      }
+    },
+    "required": [
+      "from",
+      "to"
+    ],
+    "additionalProperties": false
+  },
+  "group-delete": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 65536
+      },
+      "layouts": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "required": [
+      "name",
+      "layouts"
+    ],
+    "additionalProperties": false
+  },
+  "groups": {
+    "type": "object",
+    "properties": {
+      "groups": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "layouts": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "name",
+            "layouts"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 10000
+      }
+    },
+    "required": [
+      "groups"
+    ],
+    "additionalProperties": false
+  },
+  "manage": {
+    "type": "null"
+  }
 }
 
 const asStr = (v: unknown): string => (typeof v === 'string' ? v : v == null ? '' : String(v))
@@ -69,9 +333,15 @@ function restoreLayout(store: WorkspaceStore, prior: SavedLayout | undefined, pr
 }
 
 export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
+  const register = <I = void, O = void, E extends CommandSideEffect = 'read'>(definition: PluginCommand<I, O, E>): (() => void) => {
+    const outputSchema = workspaceResults[definition.id]
+    if (!outputSchema) throw new Error(`Missing result contract for ${definition.id}.`)
+    const command: PluginCommand<I, O, E> & { outputSchema: Record<string, unknown>; limits: Record<string, number> } = { ...definition, outputSchema, limits: { requestBytes: 1048576, responseBytes: 1048576 } }
+    return api.commands.register(command)
+  }
   const revision = async () => { const store = live(); await store.ensureLoaded(); return { layouts: store.layouts, active: store.active, groups: store.groups() } }
   /** Capture the current arrangement under `name` (overwrites + activates). */
-  const saveNamed = api.commands.register<SaveInput, SaveResult, 'write'>({
+  const saveNamed = register<SaveInput, SaveResult, 'write'>({
     id: 'save',
     label: 'Workspace: Save current layout as…', labelKey: 'auto.c8227a6250a2',
     paletteSafe: false,
@@ -131,7 +401,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
   // A palette-safe, no-argument "save what I have now": re-capture the active
   // layout with its own parts (the footer Save button does the same). With no
   // active layout there's nothing to overwrite, so open the manager to name one.
-  const saveActive = api.commands.register<void, { name: string | null }, 'write'>({
+  const saveActive = register<void, { name: string | null }, 'write'>({
     id: 'save-active',
     label: 'Workspace: Save current layout', labelKey: 'auto.2db7866c659c',
     paletteSafe: true,
@@ -159,7 +429,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
 
   /** load / open share one body — "open" reads more naturally on the CLI. */
   const loadCommand = (id: string, verb: string) =>
-    api.commands.register<NamedInput, { name: string; cancelled?: boolean }, 'write'>({
+    register<NamedInput, { name: string; cancelled?: boolean }, 'write'>({
       id,
       label: `Workspace: ${verb[0].toUpperCase()}${verb.slice(1)} a saved layout`,
       labelKey: LABEL_KEYS[id],
@@ -200,7 +470,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
 
   /** delete / close share one body — "close" reads more naturally on the CLI. */
   const deleteCommand = (id: string, verb: string) =>
-    api.commands.register<NamedInput, { name: string }, 'write'>({
+    register<NamedInput, { name: string }, 'write'>({
       id,
       label: `Workspace: ${verb[0].toUpperCase()}${verb.slice(1)} a saved layout`,
       labelKey: LABEL_KEYS[id],
@@ -234,7 +504,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
       formatCli: (v) => `Deleted layout "${v.name}".`
     })
 
-  const renameCommand = api.commands.register<RenameInput, { from: string; to: string }, 'write'>({
+  const renameCommand = register<RenameInput, { from: string; to: string }, 'write'>({
     id: 'rename',
     label: 'Workspace: Rename a saved layout', labelKey: 'auto.7a56df30a071',
     paletteSafe: false,
@@ -272,7 +542,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
     formatCli: (v) => `Renamed layout "${v.from}" → "${v.to}".`
   })
 
-  const list = api.commands.register<void, ListResult, 'read'>({
+  const list = register<void, ListResult, 'read'>({
     id: 'list',
     label: 'Workspace: List saved layouts', labelKey: 'auto.896eeb444cb8',
     paletteSafe: false,
@@ -298,7 +568,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
   })
 
   // Deselecting restores the default sidebars and rails while keeping main tabs.
-  const deselect = api.commands.register<void, { name: string | null }, 'write'>({
+  const deselect = register<void, { name: string | null }, 'write'>({
     id: 'deselect',
     label: 'Workspace: Deselect active layout', labelKey: 'auto.60d3a2f4832a',
     paletteSafe: true,
@@ -325,7 +595,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
   })
 
   /** Create an empty group — no layout involved (the panel's folder button). */
-  const groupCreate = api.commands.register<GroupInput, { name: string }, 'write'>({
+  const groupCreate = register<GroupInput, { name: string }, 'write'>({
     id: 'group-create',
     label: 'Workspace: New layout group', labelKey: 'auto.cca7f8a201e0',
     paletteSafe: false,
@@ -349,7 +619,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
         revert: {
           label: `Create group "${created}"`,
           run: async () => {
-            await store.deleteGroup(created)
+            await store.revertGroupCreate(created)
           }
         }
       }
@@ -357,7 +627,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
     formatCli: (v) => `Created group "${v.name}".`
   })
 
-  const groupRename = api.commands.register<RenameInput, { from: string; to: string }, 'write'>({
+  const groupRename = register<RenameInput, { from: string; to: string }, 'write'>({
     id: 'group-rename',
     label: 'Workspace: Rename a layout group', labelKey: 'auto.c28c3c2b1a0d',
     paletteSafe: false,
@@ -380,14 +650,16 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
     run: async ({ name, to }) => {
       const store = live()
       await store.ensureLoaded()
-      if (!store.hasGroup(name)) throw new Error(`No group named "${name}".`)
-      await store.renameGroup(name, to)
+      const from = store.groups().find((g) => g.group !== '' && g.group.toLowerCase() === name.toLowerCase())?.group
+      if (!from) throw notApplied(`No group named "${name}".`, 'NOT_FOUND')
+      const receipt = await store.renameGroup(from, to)
+      if (!receipt) throw notApplied(`Group "${from}" already has that name.`, 'NO_CHANGE')
       return {
-        value: { from: name, to },
+        value: { from, to },
         revert: {
           label: `Rename group to "${to}"`,
           run: async () => {
-            await store.renameGroup(to, name)
+            await store.revertGroupRename(receipt)
           }
         }
       }
@@ -396,7 +668,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
   })
 
   /** Drop a group; its layouts survive as ungrouped (and the revert puts them back). */
-  const groupDelete = api.commands.register<GroupInput, { name: string; layouts: number }, 'write'>({
+  const groupDelete = register<GroupInput, { name: string; layouts: number }, 'write'>({
     id: 'group-delete',
     label: 'Workspace: Delete a layout group', labelKey: 'auto.be1a9fa728a4',
     paletteSafe: false,
@@ -415,15 +687,14 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
       const store = live()
       await store.ensureLoaded()
       const group = store.groups().find((g) => g.group.toLowerCase() === name.toLowerCase())?.group
-      if (!group) throw new Error(`No group named "${name}".`)
-      const members = await store.deleteGroup(group)
+      if (!group) throw notApplied(`No group named "${name}".`, 'NOT_FOUND')
+      const receipt = await store.deleteGroup(group)
       return {
-        value: { name: group, layouts: members.length },
+        value: { name: group, layouts: receipt.layouts.length },
         revert: {
           label: `Delete group "${group}"`,
           run: async () => {
-            await store.createGroup(group)
-            await store.assignGroup(members, group)
+            await store.revertGroupDelete(receipt)
           }
         }
       }
@@ -434,7 +705,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
         : `Deleted group "${v.name}" — ${v.layouts} layout${v.layouts === 1 ? '' : 's'} moved to Ungrouped.`
   })
 
-  const groups = api.commands.register<void, GroupsResult, 'read'>({
+  const groups = register<void, GroupsResult, 'read'>({
     id: 'groups',
     label: 'Workspace: List layout groups', labelKey: 'auto.20d801545428',
     paletteSafe: false,
@@ -456,7 +727,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
     }
   })
 
-  const manage = api.commands.register({
+  const manage = register({
     id: 'manage',
     label: 'Workspace: Manage workspace layouts', labelKey: 'auto.24c9b9b89804',
     sideEffect: 'read',
@@ -464,7 +735,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
       // The manager lives behind the footer chip; with that chip hidden, the
       // sidebar panel is the place that can still manage layouts.
       if (!openManager('search')) api.workspace.revealOwnPanel('left_sidebar')
-      return undefined
+      return null
     }
   })
 

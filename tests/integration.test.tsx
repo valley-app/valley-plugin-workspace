@@ -1,3 +1,4 @@
+import Ajv2020 from 'ajv/dist/2020'
 import React, { type ComponentType } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -10,16 +11,43 @@ import type { LeafPane, WorkspaceLayoutSnapshot } from '@valley/plugin-sdk/types
 import { PLUGIN_SURFACE_V1, METADATA_PANEL_SEGMENT_V1, WORKSPACE_VIEW_STATE_V1 } from '@valley/plugin-sdk'
 import { ago } from '../src/ui'
 
+function validatePublishedResults(mock: { api: import('@valley/plugin-sdk').ValleyPluginApi }): void {
+  const original = mock.api.commands.register
+  vi.spyOn(mock.api.commands, 'register').mockImplementation(definition => {
+    const schema = (definition as typeof definition & { outputSchema?: Record<string, unknown> }).outputSchema
+    expect(schema, definition.id).toBeDefined()
+    const validate = new Ajv2020({ strict: false, strictSchema: true, allowUnionTypes: true, ownProperties: true, validateFormats: false }).compile(schema!)
+    expect(validate({ unexpected: true }), definition.id).toBe(false)
+    return original({ ...definition, run: async (input, context) => {
+      const result = await definition.run(input, context)
+      const value = definition.sideEffect === 'write' ? (result as { value: unknown }).value : result
+      expect(validate(value), `${definition.id}: ${JSON.stringify(validate.errors)}`).toBe(true)
+      return result
+    } } as typeof definition)
+  })
+}
+
 const NS = 'test-plugin' // createMockValleyApi's manifest id
 
 afterEach(() => cleanup())
 
 function setup() {
   const mock = createMockValleyApi()
+  validatePublishedResults(mock)
   initRuntime(mock.api)
   createStore(mock.api)
   const off = registerWorkspaceCommands(mock.api)
   return { api: mock.api, off, mock }
+}
+
+/** The registered `run`s by command id, so a test can see a refusal's code and outcome (the mock bus drops them). */
+function commandRuns(mock: ReturnType<typeof createMockValleyApi>): Map<string, (input: unknown) => Promise<unknown>> {
+  const runs = new Map<string, (input: unknown) => Promise<unknown>>()
+  for (const call of vi.mocked(mock.api.commands.register).mock.calls) {
+    const definition = call[0] as { id: string; run: (input: unknown, context: unknown) => Promise<unknown> }
+    runs.set(definition.id, (input) => definition.run(input, {}))
+  }
+  return runs
 }
 
 async function savedLayouts(api: ReturnType<typeof setup>['api']): Promise<Record<string, unknown>[]> {
@@ -289,9 +317,32 @@ describe('workspace plugin commands', () => {
     expect(store.groups().map((g) => g.group)).toEqual(['Test'])
     expect(store.groups()[0].layouts.map((l) => l.name)).toEqual(['Mycology'])
 
+    // Undo drops only the declaration the create added; the layout saved into
+    // the group since keeps its membership, so the group lives on through it.
+    const layoutsBefore = await savedLayouts(api)
     const undo = mock.busUndo[0]
     await undo.undo()
-    expect(getStore()?.hasGroup('Test')).toBe(false)
+    expect(JSON.parse(await api.data.files.readText('workspaces.json') ?? '{}').groups ?? []).toEqual([])
+    expect(await savedLayouts(api)).toEqual(layoutsBefore)
+    expect(getStore()?.find('Mycology')?.group).toBe('test')
+  })
+
+  it('reverts a group create to the exact bytes and refuses once its declaration is gone', async () => {
+    const { api, mock } = setup()
+    await api.commands.execute(`${NS}:save`, { name: 'Loose', group: 'Other' })
+    await api.commands.execute(`${NS}:group-create`, { name: 'Early' })
+    const before = await api.data.files.readText('workspaces.json')
+    await api.commands.execute(`${NS}:group-create`, { name: 'Ferns' })
+    const create = mock.busUndo[mock.busUndo.length - 1]
+    await create.undo()
+    expect(await api.data.files.readText('workspaces.json')).toBe(before)
+
+    await api.commands.execute(`${NS}:group-create`, { name: 'Mosses' })
+    const again = mock.busUndo[mock.busUndo.length - 1]
+    await api.commands.execute(`${NS}:group-delete`, { name: 'Mosses' })
+    const gone = await api.data.files.readText('workspaces.json')
+    await expect(again.undo()).rejects.toMatchObject({ code: 'NOT_FOUND', outcome: 'not-applied' })
+    expect(await api.data.files.readText('workspaces.json')).toBe(gone)
   })
 
   it('an empty group survives a reload, and the store lists it for the group dropdown', async () => {
@@ -336,6 +387,124 @@ describe('workspace plugin commands', () => {
         { name: 'New', layouts: 1 }
       ])
     }
+  })
+
+  it('refuses a group rename onto another existing group before any change, and reverts to the exact bytes', async () => {
+    const { api, mock } = setup()
+    await api.commands.execute(`${NS}:save`, { name: 'One', group: 'Alpha' })
+    await api.commands.execute(`${NS}:save`, { name: 'Two', group: 'Beta' })
+    await api.commands.execute(`${NS}:save`, { name: 'Three', group: 'alpha' })
+    await api.commands.execute(`${NS}:group-create`, { name: 'Gamma' })
+    const before = await api.data.files.readText('workspaces.json')
+    const undos = mock.busUndo.length
+
+    const clash = await api.commands.execute(`${NS}:group-rename`, { name: 'Alpha', to: 'beta' })
+    expect(clash.ok).toBe(false)
+    if (!clash.ok) expect(clash.error.message).toContain('already exists')
+    await expect(getStore()!.renameGroup('Alpha', 'GAMMA')).rejects.toMatchObject({ code: 'GROUP_EXISTS', outcome: 'not-applied' })
+    await expect(getStore()!.renameGroup('Alpha', '  ')).rejects.toMatchObject({ code: 'INVALID_INPUT', outcome: 'not-applied' })
+    expect(await api.data.files.readText('workspaces.json')).toBe(before)
+    expect(getStore()?.groupNames()).toEqual(['Alpha', 'Beta', 'Gamma'])
+    expect(mock.busUndo.length).toBe(undos)
+
+    const renamed = await api.commands.execute(`${NS}:group-rename`, { name: 'alpha', to: 'Delta' })
+    expect(renamed.ok).toBe(true)
+    if (renamed.ok) expect(renamed.value).toEqual({ from: 'Alpha', to: 'Delta' })
+    expect(getStore()?.groupNames()).toEqual(['Beta', 'Delta', 'Gamma'])
+    // The inverse restores each layout's exact prior group string, case variants included.
+    await mock.busUndo[mock.busUndo.length - 1].undo()
+    expect(await api.data.files.readText('workspaces.json')).toBe(before)
+
+    // Once the old name is taken again, the inverse refuses instead of merging into it.
+    await api.commands.execute(`${NS}:group-rename`, { name: 'Gamma', to: 'Epsilon' })
+    await api.commands.execute(`${NS}:group-create`, { name: 'gamma' })
+    const taken = await api.data.files.readText('workspaces.json')
+    await expect(mock.busUndo[mock.busUndo.length - 2].undo()).rejects.toMatchObject({ code: 'GROUP_EXISTS', outcome: 'not-applied' })
+    expect(await api.data.files.readText('workspaces.json')).toBe(taken)
+  })
+
+  it('refuses a group-rename undo once nothing it renamed is left, instead of reporting success', async () => {
+    const { api, mock } = setup()
+    await api.commands.execute(`${NS}:save`, { name: 'One', group: 'Alpha' })
+    expect((await api.commands.execute(`${NS}:group-rename`, { name: 'Alpha', to: 'Beta' })).ok).toBe(true)
+    const rename = mock.busUndo[mock.busUndo.length - 1]
+    await getStore()!.setGroup('One', 'Elsewhere')
+    const moved = await api.data.files.readText('workspaces.json')
+    await expect(rename.undo()).rejects.toMatchObject({ code: 'NOT_FOUND', outcome: 'not-applied' })
+    expect(await api.data.files.readText('workspaces.json')).toBe(moved)
+  })
+
+  it('re-spells a group on a case-only rename, refuses one that changes nothing, and reverts to the exact bytes', async () => {
+    const { api, mock } = setup()
+    const runs = commandRuns(mock)
+    await api.commands.execute(`${NS}:save`, { name: 'One', group: 'alpha' })
+    await api.commands.execute(`${NS}:save`, { name: 'Two', group: 'ALPHA' })
+    const before = await api.data.files.readText('workspaces.json')
+    const undos = mock.busUndo.length
+
+    const renamed = await api.commands.execute(`${NS}:group-rename`, { name: 'alpha', to: 'Alpha' })
+    expect(renamed.ok).toBe(true)
+    expect(getStore()?.groupNames()).toEqual(['Alpha'])
+    expect((await savedLayouts(api)).map((l) => l.group)).toEqual(['Alpha', 'Alpha'])
+    await mock.busUndo[mock.busUndo.length - 1].undo()
+    expect(await api.data.files.readText('workspaces.json')).toBe(before)
+
+    await api.commands.execute(`${NS}:group-rename`, { name: 'alpha', to: 'Alpha' })
+    const settled = await api.data.files.readText('workspaces.json')
+    const count = mock.busUndo.length
+    await expect(runs.get('group-rename')!({ name: 'Alpha', to: 'Alpha' })).rejects.toMatchObject({ code: 'NO_CHANGE', outcome: 'not-applied' })
+    expect(await api.data.files.readText('workspaces.json')).toBe(settled)
+    expect((await api.commands.execute(`${NS}:group-rename`, { name: 'alpha', to: 'Alpha' })).ok).toBe(false)
+    expect(await api.data.files.readText('workspaces.json')).toBe(settled)
+    expect(mock.busUndo.length).toBe(count)
+    expect(count).toBe(undos + 2)
+  })
+
+  it('refuses a duplicate group-create and a missing group-delete as known no-effect outcomes', async () => {
+    const { api, mock } = setup()
+    const runs = commandRuns(mock)
+    await api.commands.execute(`${NS}:group-create`, { name: 'Ferns' })
+    const before = await api.data.files.readText('workspaces.json')
+    const undos = mock.busUndo.length
+
+    await expect(runs.get('group-create')!({ name: 'FERNS' })).rejects.toMatchObject({ code: 'GROUP_EXISTS', outcome: 'not-applied' })
+    await expect(getStore()!.createGroup('  ')).rejects.toMatchObject({ code: 'INVALID_INPUT', outcome: 'not-applied' })
+    await expect(runs.get('group-delete')!({ name: 'ghost' })).rejects.toMatchObject({ code: 'NOT_FOUND', outcome: 'not-applied' })
+    await expect(getStore()!.deleteGroup('ghost')).rejects.toMatchObject({ code: 'NOT_FOUND', outcome: 'not-applied' })
+    await expect(getStore()!.deleteGroup(' ')).rejects.toMatchObject({ code: 'INVALID_INPUT', outcome: 'not-applied' })
+    expect(await api.data.files.readText('workspaces.json')).toBe(before)
+    expect(mock.busUndo.length).toBe(undos)
+  })
+
+  it('reverts a group delete to the exact bytes: declaration position, case variants, implicit groups', async () => {
+    const { api, mock } = setup()
+    await api.commands.execute(`${NS}:group-create`, { name: 'Middle' })
+    await api.commands.execute(`${NS}:group-create`, { name: 'Last' })
+    await api.commands.execute(`${NS}:save`, { name: 'One', group: 'Middle' })
+    await api.commands.execute(`${NS}:save`, { name: 'Two', group: 'middle' })
+    await api.commands.execute(`${NS}:save`, { name: 'Three', group: 'Loose' })
+    // Make 'Middle' the first declaration, not the last.
+    await api.commands.execute(`${NS}:group-create`, { name: 'Zeta' })
+    const before = await api.data.files.readText('workspaces.json')
+    expect(JSON.parse(before ?? '{}').groups).toEqual(['Middle', 'Last', 'Zeta'])
+
+    const deleted = await api.commands.execute(`${NS}:group-delete`, { name: 'MIDDLE' })
+    expect(deleted.ok).toBe(true)
+    if (deleted.ok) expect(deleted.value).toEqual({ name: 'Middle', layouts: 2 })
+    await mock.busUndo[mock.busUndo.length - 1].undo()
+    expect(await api.data.files.readText('workspaces.json')).toBe(before)
+
+    // A group that existed only through its layouts comes back without a declaration.
+    expect((await api.commands.execute(`${NS}:group-delete`, { name: 'loose' })).ok).toBe(true)
+    await mock.busUndo[mock.busUndo.length - 1].undo()
+    expect(await api.data.files.readText('workspaces.json')).toBe(before)
+
+    // Once the name is taken again, the inverse refuses before any change.
+    expect((await api.commands.execute(`${NS}:group-delete`, { name: 'Middle' })).ok).toBe(true)
+    await api.commands.execute(`${NS}:group-create`, { name: 'MIDDLE' })
+    const taken = await api.data.files.readText('workspaces.json')
+    await expect(mock.busUndo[mock.busUndo.length - 2].undo()).rejects.toMatchObject({ code: 'GROUP_EXISTS', outcome: 'not-applied' })
+    expect(await api.data.files.readText('workspaces.json')).toBe(taken)
   })
 
   it('moves a layout into and out of a group via setGroup (the ⋯ "Add to Group" action)', async () => {

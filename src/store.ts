@@ -20,6 +20,25 @@ export { structuralSnapshotKey, layoutCounts, scopesOf, LAYOUT_SCOPES, type Layo
 import { api as runtimeApi, initRuntime } from './runtime'
 import { uiText } from './localization'
 
+/** What one group rename moved, so its inverse restores the exact prior strings. */
+export interface GroupRenameReceipt {
+  to: string
+  layouts: { name: string; group: string }[]
+  declared: string | null
+}
+
+/** What one group delete removed, so its inverse restores the exact prior strings and position. */
+export interface GroupDeleteReceipt {
+  group: string
+  layouts: { name: string; group: string }[]
+  declared: { spelling: string; index: number } | null
+}
+
+/** A refusal raised before anything changed, so the bus can report a known no-effect outcome. */
+export function notApplied(message: string, code: string): Error {
+  return Object.assign(new Error(message), { code, outcome: 'not-applied' as const })
+}
+
 const STORE_KEY = 'workspace.store'
 const ACTIVE_SETTING = 'active'
 export class WorkspaceStore {
@@ -162,8 +181,8 @@ export class WorkspaceStore {
    */
   async createGroup(name: string): Promise<string> {
     const next = name.trim()
-    if (!next) throw new Error('A group name is required.')
-    if (this.hasGroup(next)) throw new Error(`A group named "${next}" already exists.`)
+    if (!next) throw notApplied('A group name is required.', 'INVALID_INPUT')
+    if (this.hasGroup(next)) throw notApplied(`A group named "${next}" already exists.`, 'GROUP_EXISTS')
     this.declaredGroups = [...this.declaredGroups, next]
     await this.persist()
     return next
@@ -171,24 +190,61 @@ export class WorkspaceStore {
 
   /**
    * Drop a group: its declaration goes and every layout in it falls back to
-   * ungrouped. Returns the names that moved, so a caller can register a revert.
+   * ungrouped. Returns a receipt of exactly what changed, for `revertGroupDelete`.
    */
-  async deleteGroup(name: string): Promise<string[]> {
+  async deleteGroup(name: string): Promise<GroupDeleteReceipt> {
     const key = name.trim().toLowerCase()
-    if (!key) throw new Error('A group name is required.')
-    if (!this.hasGroup(key)) throw new Error(`No group named "${name.trim()}".`)
-    const members = this.layouts.filter((l) => l.group.trim().toLowerCase() === key).map((l) => l.name)
+    if (!key) throw notApplied('A group name is required.', 'INVALID_INPUT')
+    if (!this.hasGroup(key)) throw notApplied(`No group named "${name.trim()}".`, 'NOT_FOUND')
+    const index = this.declaredGroups.findIndex((g) => g.trim().toLowerCase() === key)
+    const receipt: GroupDeleteReceipt = {
+      group: this.groups().find((g) => g.group.toLowerCase() === key)?.group ?? name.trim(),
+      layouts: this.layouts.filter((l) => l.group.trim().toLowerCase() === key).map((l) => ({ name: l.name, group: l.group })),
+      declared: index === -1 ? null : { spelling: this.declaredGroups[index], index }
+    }
     this.declaredGroups = this.declaredGroups.filter((g) => g.trim().toLowerCase() !== key)
     this.layouts = this.layouts.map((l) => (l.group.trim().toLowerCase() === key ? { ...l, group: '' } : l))
     await this.persist()
-    return members
+    return receipt
   }
 
-  /** Move several layouts into one group in a single persist (the group reverts). */
-  async assignGroup(names: string[], group: string): Promise<void> {
-    const keys = new Set(names.map((n) => n.trim().toLowerCase()))
-    if (keys.size === 0) return
-    this.layouts = this.layouts.map((l) => (keys.has(l.name.toLowerCase()) ? { ...l, group: group.trim() } : l))
+  /**
+   * Undo one `deleteGroup` in a single persist: the declaration returns at its
+   * prior position (only if there was one), and every layout it ungrouped that is
+   * still ungrouped gets its exact prior group string back. Refuses (before any
+   * change) if a group of that name exists again, or if nothing is left to restore.
+   */
+  async revertGroupDelete(receipt: GroupDeleteReceipt): Promise<void> {
+    if (this.hasGroup(receipt.group)) throw notApplied(`A group named "${receipt.group.trim()}" already exists.`, 'GROUP_EXISTS')
+    const prior = new Map(receipt.layouts.map((l) => [l.name.toLowerCase(), l.group]))
+    let restored = 0
+    const layouts = this.layouts.map((l) => {
+      const group = prior.get(l.name.toLowerCase())
+      if (group === undefined || l.group.trim() !== '') return l
+      restored++
+      return { ...l, group }
+    })
+    if (restored === 0 && receipt.declared === null) {
+      throw notApplied(`Nothing from group "${receipt.group.trim()}" is left to restore.`, 'NOT_FOUND')
+    }
+    if (receipt.declared !== null) {
+      const declaredGroups = [...this.declaredGroups]
+      declaredGroups.splice(Math.min(receipt.declared.index, declaredGroups.length), 0, receipt.declared.spelling)
+      this.declaredGroups = declaredGroups
+    }
+    this.layouts = layouts
+    await this.persist()
+  }
+
+  /**
+   * Undo one `createGroup`: drop exactly the declaration it added and nothing
+   * else, so layouts saved into the group since keep their membership. Refuses
+   * (before any change) if that declaration is no longer there.
+   */
+  async revertGroupCreate(name: string): Promise<void> {
+    const index = this.declaredGroups.indexOf(name)
+    if (index === -1) throw notApplied(`Group "${name}" is no longer declared.`, 'NOT_FOUND')
+    this.declaredGroups = this.declaredGroups.filter((_, i) => i !== index)
     await this.persist()
   }
 
@@ -339,24 +395,62 @@ export class WorkspaceStore {
    * Rename a group, moving every layout currently in `oldGroup` to `newGroup`
    * in one batch (a single persist/notify, unlike calling `setGroup` per layout)
    * and carrying the declaration across so an empty group can be renamed too.
-   * No-op if nothing carries the old name; throws if `newGroup` is blank.
+   * A case-only rename re-spells every layout and the declaration in place.
+   * No-op (null) if nothing would change; throws (before any change) if
+   * `newGroup` is blank or already names a *different* group — renaming onto an
+   * existing group would merge the two in a way no inverse can separate again.
+   * Returns a receipt of exactly what moved, for `revertGroupRename`.
    */
-  async renameGroup(oldGroup: string, newGroup: string): Promise<void> {
+  async renameGroup(oldGroup: string, newGroup: string): Promise<GroupRenameReceipt | null> {
     const from = oldGroup.trim().toLowerCase()
     const to = newGroup.trim()
-    if (!to) throw new Error('A new group name is required.')
-    if (from === to.toLowerCase()) return
-    let changed = false
+    if (!to) throw notApplied('A new group name is required.', 'INVALID_INPUT')
+    // A case-only rename re-spells the group in place: the new name is the same group.
+    const respell = from === to.toLowerCase()
+    if (!respell && this.hasGroup(to)) throw notApplied(`A group named "${to}" already exists.`, 'GROUP_EXISTS')
+    const receipt: GroupRenameReceipt = { to, layouts: [], declared: null }
     this.layouts = this.layouts.map((l) => {
-      if (l.group.trim().toLowerCase() !== from) return l
-      changed = true
+      if (l.group.trim().toLowerCase() !== from || l.group === to) return l
+      receipt.layouts.push({ name: l.name, group: l.group })
       return { ...l, group: to }
     })
-    if (this.declaredGroups.some((g) => g.trim().toLowerCase() === from)) {
+    const declared = this.declaredGroups.find((g) => g.trim().toLowerCase() === from)
+    if (declared !== undefined && declared !== to) {
+      receipt.declared = declared
       this.declaredGroups = dedupeGroups(this.declaredGroups.map((g) => (g.trim().toLowerCase() === from ? to : g)))
+    }
+    if (receipt.layouts.length === 0 && receipt.declared === null) return null
+    await this.persist()
+    return receipt
+  }
+
+  /**
+   * Undo one `renameGroup`: every layout it moved that is still in the new group
+   * gets its exact prior group string back, and the declaration returns to its
+   * prior spelling in place. Refuses (before any change) if the old name has
+   * since been taken by another group, since restoring would merge into it, or
+   * if nothing it renamed is left in the new group.
+   */
+  async revertGroupRename(receipt: GroupRenameReceipt): Promise<void> {
+    const toKey = receipt.to.toLowerCase()
+    const original = (receipt.declared ?? receipt.layouts[0]?.group ?? '').trim()
+    if (original && original.toLowerCase() !== toKey && this.hasGroup(original)) {
+      throw notApplied(`A group named "${original}" already exists.`, 'GROUP_EXISTS')
+    }
+    const prior = new Map(receipt.layouts.map((l) => [l.name.toLowerCase(), l.group]))
+    let changed = false
+    this.layouts = this.layouts.map((l) => {
+      const group = prior.get(l.name.toLowerCase())
+      if (group === undefined || l.group.trim().toLowerCase() !== toKey) return l
+      changed = true
+      return { ...l, group }
+    })
+    const declared = receipt.declared
+    if (declared !== null && this.declaredGroups.some((g) => g.trim().toLowerCase() === toKey)) {
+      this.declaredGroups = this.declaredGroups.map((g) => (g.trim().toLowerCase() === toKey ? declared : g))
       changed = true
     }
-    if (!changed) return
+    if (!changed) throw notApplied(`Nothing renamed to "${receipt.to}" is left to restore.`, 'NOT_FOUND')
     await this.persist()
   }
 

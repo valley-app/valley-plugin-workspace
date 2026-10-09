@@ -111,6 +111,1136 @@
     "zh-CN": "runtime/locales/zh-CN.json"
   },
   "runtime": {
-    "ui": "runtime/index.js"
+    "ui": "runtime/index.js",
+    "backend": "runtime/backend.js",
+    "services": [
+      {
+        "id": "workflow.provider",
+        "version": "1.0.0",
+        "method": "workflow.execute",
+        "operation": true,
+        "request": {
+          "type": "unknown"
+        },
+        "response": {
+          "type": "unknown"
+        },
+        "metadata": {
+          "workflow": {
+            "providerId": "workspace",
+            "providerVersion": "1.0.0",
+            "nodes": [
+              {
+                "id": "workspace.save",
+                "type": "action",
+                "version": "1.0.0",
+                "displayName": "Save current layout as…",
+                "description": "Workspace: Save current layout as…. Reuses the owning handler, grants and revisions in the selected window. Confirmed data is exposed as result, with its authoritative receipt. Insertion and previews never dispatch.",
+                "effect": "write",
+                "idempotent": false,
+                "executionMode": "item",
+                "inputs": [
+                  {
+                    "id": "input",
+                    "label": "Input",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object"
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "result",
+                    "label": "Confirmed result",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "result": {},
+                        "receipt": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "revision": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "const": "completed"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "status"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "result",
+                        "receipt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "parameterSchema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "group": {
+                      "type": "string"
+                    },
+                    "rightSidebar": {
+                      "type": "boolean"
+                    },
+                    "iconRail": {
+                      "type": "boolean"
+                    },
+                    "footer": {
+                      "type": "boolean"
+                    },
+                    "targetWindowId": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "title": "Application window",
+                      "description": "Explicit authenticated application window ID. Uses the owning plugin view in that window.",
+                      "ui": {
+                        "control": "number",
+                        "step": 1
+                      }
+                    },
+                    "commandRevision": {
+                      "description": "Optional owner revision from a previous inspection. Native expectedRevision fields remain separate."
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "targetWindowId"
+                  ],
+                  "additionalProperties": false,
+                  "$schema": "http://json-schema.org/draft-07/schema#"
+                },
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {},
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "const": "completed"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "result",
+                    "receipt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "id": "workspace.load",
+                "type": "action",
+                "version": "1.0.0",
+                "displayName": "Load a saved layout",
+                "description": "Workspace: Load a saved layout. Reuses the owning handler, grants and revisions in the selected window. Confirmed data is exposed as result, with its authoritative receipt. Insertion and previews never dispatch.",
+                "effect": "write",
+                "idempotent": false,
+                "executionMode": "item",
+                "inputs": [
+                  {
+                    "id": "input",
+                    "label": "Input",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object"
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "result",
+                    "label": "Confirmed result",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "result": {},
+                        "receipt": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "revision": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "const": "completed"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "status"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "result",
+                        "receipt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "parameterSchema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "targetWindowId": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "title": "Application window",
+                      "description": "Explicit authenticated application window ID. Uses the owning plugin view in that window.",
+                      "ui": {
+                        "control": "number",
+                        "step": 1
+                      }
+                    },
+                    "commandRevision": {
+                      "description": "Optional owner revision from a previous inspection. Native expectedRevision fields remain separate."
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "targetWindowId"
+                  ],
+                  "additionalProperties": false,
+                  "$schema": "http://json-schema.org/draft-07/schema#"
+                },
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {},
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "const": "completed"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "result",
+                    "receipt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "id": "workspace.delete",
+                "type": "action",
+                "version": "1.0.0",
+                "displayName": "Delete a saved layout",
+                "description": "Workspace: Delete a saved layout. Reuses the owning handler, grants and revisions in the selected window. Confirmed data is exposed as result, with its authoritative receipt. Insertion and previews never dispatch.",
+                "effect": "write",
+                "idempotent": false,
+                "executionMode": "item",
+                "inputs": [
+                  {
+                    "id": "input",
+                    "label": "Input",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object"
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "result",
+                    "label": "Confirmed result",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "result": {},
+                        "receipt": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "revision": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "const": "completed"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "status"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "result",
+                        "receipt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "parameterSchema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "targetWindowId": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "title": "Application window",
+                      "description": "Explicit authenticated application window ID. Uses the owning plugin view in that window.",
+                      "ui": {
+                        "control": "number",
+                        "step": 1
+                      }
+                    },
+                    "commandRevision": {
+                      "description": "Optional owner revision from a previous inspection. Native expectedRevision fields remain separate."
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "targetWindowId"
+                  ],
+                  "additionalProperties": false,
+                  "$schema": "http://json-schema.org/draft-07/schema#"
+                },
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {},
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "const": "completed"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "result",
+                    "receipt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "id": "workspace.rename",
+                "type": "action",
+                "version": "1.0.0",
+                "displayName": "Rename a saved layout",
+                "description": "Workspace: Rename a saved layout. Reuses the owning handler, grants and revisions in the selected window. Confirmed data is exposed as result, with its authoritative receipt. Insertion and previews never dispatch.",
+                "effect": "write",
+                "idempotent": false,
+                "executionMode": "item",
+                "inputs": [
+                  {
+                    "id": "input",
+                    "label": "Input",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object"
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "result",
+                    "label": "Confirmed result",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "result": {},
+                        "receipt": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "revision": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "const": "completed"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "status"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "result",
+                        "receipt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "parameterSchema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "to": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "targetWindowId": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "title": "Application window",
+                      "description": "Explicit authenticated application window ID. Uses the owning plugin view in that window.",
+                      "ui": {
+                        "control": "number",
+                        "step": 1
+                      }
+                    },
+                    "commandRevision": {
+                      "description": "Optional owner revision from a previous inspection. Native expectedRevision fields remain separate."
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "to",
+                    "targetWindowId"
+                  ],
+                  "additionalProperties": false,
+                  "$schema": "http://json-schema.org/draft-07/schema#"
+                },
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {},
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "const": "completed"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "result",
+                    "receipt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "id": "workspace.list",
+                "type": "action",
+                "version": "1.0.0",
+                "displayName": "List saved layouts",
+                "description": "Workspace: List saved layouts. Reuses the owning handler, grants and revisions in the selected window. Confirmed data is exposed as result, with its authoritative receipt. Insertion and previews never dispatch.",
+                "effect": "read",
+                "idempotent": true,
+                "executionMode": "item",
+                "inputs": [
+                  {
+                    "id": "input",
+                    "label": "Input",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object"
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "result",
+                    "label": "Confirmed result",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "result": {},
+                        "receipt": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "revision": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "const": "completed"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "status"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "result",
+                        "receipt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "parameterSchema": {
+                  "type": "object",
+                  "properties": {
+                    "targetWindowId": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "title": "Application window",
+                      "description": "Explicit authenticated application window ID. Uses the owning plugin view in that window.",
+                      "ui": {
+                        "control": "number",
+                        "step": 1
+                      }
+                    },
+                    "commandRevision": {
+                      "description": "Optional owner revision from a previous inspection. Native expectedRevision fields remain separate."
+                    }
+                  },
+                  "additionalProperties": false,
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "required": [
+                    "targetWindowId"
+                  ]
+                },
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {},
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "const": "completed"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "result",
+                    "receipt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "id": "workspace.group-create",
+                "type": "action",
+                "version": "1.0.0",
+                "displayName": "New layout group",
+                "description": "Workspace: New layout group. Reuses the owning handler, grants and revisions in the selected window. Confirmed data is exposed as result, with its authoritative receipt. Insertion and previews never dispatch.",
+                "effect": "write",
+                "idempotent": false,
+                "executionMode": "item",
+                "inputs": [
+                  {
+                    "id": "input",
+                    "label": "Input",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object"
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "result",
+                    "label": "Confirmed result",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "result": {},
+                        "receipt": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "revision": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "const": "completed"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "status"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "result",
+                        "receipt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "parameterSchema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "targetWindowId": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "title": "Application window",
+                      "description": "Explicit authenticated application window ID. Uses the owning plugin view in that window.",
+                      "ui": {
+                        "control": "number",
+                        "step": 1
+                      }
+                    },
+                    "commandRevision": {
+                      "description": "Optional owner revision from a previous inspection. Native expectedRevision fields remain separate."
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "targetWindowId"
+                  ],
+                  "additionalProperties": false,
+                  "$schema": "http://json-schema.org/draft-07/schema#"
+                },
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {},
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "const": "completed"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "result",
+                    "receipt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "id": "workspace.group-rename",
+                "type": "action",
+                "version": "1.0.0",
+                "displayName": "Rename a layout group",
+                "description": "Workspace: Rename a layout group. Reuses the owning handler, grants and revisions in the selected window. Confirmed data is exposed as result, with its authoritative receipt. Insertion and previews never dispatch.",
+                "effect": "write",
+                "idempotent": false,
+                "executionMode": "item",
+                "inputs": [
+                  {
+                    "id": "input",
+                    "label": "Input",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object"
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "result",
+                    "label": "Confirmed result",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "result": {},
+                        "receipt": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "revision": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "const": "completed"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "status"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "result",
+                        "receipt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "parameterSchema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "to": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "targetWindowId": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "title": "Application window",
+                      "description": "Explicit authenticated application window ID. Uses the owning plugin view in that window.",
+                      "ui": {
+                        "control": "number",
+                        "step": 1
+                      }
+                    },
+                    "commandRevision": {
+                      "description": "Optional owner revision from a previous inspection. Native expectedRevision fields remain separate."
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "to",
+                    "targetWindowId"
+                  ],
+                  "additionalProperties": false,
+                  "$schema": "http://json-schema.org/draft-07/schema#"
+                },
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {},
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "const": "completed"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "result",
+                    "receipt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "id": "workspace.group-delete",
+                "type": "action",
+                "version": "1.0.0",
+                "displayName": "Delete a layout group",
+                "description": "Workspace: Delete a layout group. Reuses the owning handler, grants and revisions in the selected window. Confirmed data is exposed as result, with its authoritative receipt. Insertion and previews never dispatch.",
+                "effect": "write",
+                "idempotent": false,
+                "executionMode": "item",
+                "inputs": [
+                  {
+                    "id": "input",
+                    "label": "Input",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object"
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "result",
+                    "label": "Confirmed result",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "result": {},
+                        "receipt": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "revision": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "const": "completed"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "status"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "result",
+                        "receipt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "parameterSchema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "targetWindowId": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "title": "Application window",
+                      "description": "Explicit authenticated application window ID. Uses the owning plugin view in that window.",
+                      "ui": {
+                        "control": "number",
+                        "step": 1
+                      }
+                    },
+                    "commandRevision": {
+                      "description": "Optional owner revision from a previous inspection. Native expectedRevision fields remain separate."
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "targetWindowId"
+                  ],
+                  "additionalProperties": false,
+                  "$schema": "http://json-schema.org/draft-07/schema#"
+                },
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {},
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "const": "completed"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "result",
+                    "receipt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              {
+                "id": "workspace.groups",
+                "type": "action",
+                "version": "1.0.0",
+                "displayName": "List layout groups",
+                "description": "Workspace: List layout groups. Reuses the owning handler, grants and revisions in the selected window. Confirmed data is exposed as result, with its authoritative receipt. Insertion and previews never dispatch.",
+                "effect": "read",
+                "idempotent": true,
+                "executionMode": "item",
+                "inputs": [
+                  {
+                    "id": "input",
+                    "label": "Input",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object"
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "result",
+                    "label": "Confirmed result",
+                    "dataType": "json",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "result": {},
+                        "receipt": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "revision": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "const": "completed"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "status"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "result",
+                        "receipt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "parameterSchema": {
+                  "type": "object",
+                  "properties": {
+                    "targetWindowId": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "title": "Application window",
+                      "description": "Explicit authenticated application window ID. Uses the owning plugin view in that window.",
+                      "ui": {
+                        "control": "number",
+                        "step": 1
+                      }
+                    },
+                    "commandRevision": {
+                      "description": "Optional owner revision from a previous inspection. Native expectedRevision fields remain separate."
+                    }
+                  },
+                  "additionalProperties": false,
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "required": [
+                    "targetWindowId"
+                  ]
+                },
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {},
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "integer"
+                        },
+                        "status": {
+                          "const": "completed"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "result",
+                    "receipt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "workflow.catalog",
+        "version": "1.0.0",
+        "method": "workflow.catalog",
+        "operation": true,
+        "request": {
+          "type": "unknown"
+        },
+        "response": {
+          "type": "unknown"
+        }
+      }
+    ],
+    "largeDataOperations": [
+      "workflow.execute"
+    ]
   }
 }
