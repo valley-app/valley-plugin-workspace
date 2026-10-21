@@ -126,7 +126,7 @@ export class WorkspaceStore {
       this.loaded = true
       if (firstLoad && this.active) {
         const loadRevision = this.loadRevision + 1
-        if (!await this.loadByName(this.active) && loadRevision === this.loadRevision) await this.setActive(null)
+        if (!await this.loadByName(this.active, { keepLiveMain: true }) && loadRevision === this.loadRevision) await this.setActive(null)
       }
       else if (!this.active && (priorActive || settingActive)) await this.setActive(null)
       else if (firstLoad && !this.active) this.api.workspace.applyLayout(null)
@@ -310,8 +310,12 @@ export class WorkspaceStore {
     return this.saveCurrent(target.name, target.group)
   }
 
-  /** Restore a saved layout into the live workspace (the panel's Load). */
-  async loadByName(name: string): Promise<SavedLayout | null> {
+  /**
+   * Restore a saved layout into the live workspace (the panel's Load). The
+   * startup restore of the active layout keeps the main panes and tabs that the
+   * host already restored from its session and applies only the layout's chrome.
+   */
+  async loadByName(name: string, options: { keepLiveMain?: boolean } = {}): Promise<SavedLayout | null> {
     const target = this.find(name)
     if (!target) throw new Error(`No saved layout named "${name}".`)
     const revision = ++this.loadRevision
@@ -330,7 +334,10 @@ export class WorkspaceStore {
       await this.upsert(layout)
     }
     if (this.disposed || revision !== this.loadRevision) return null
-    this.applySnapshot(layout.snapshot)
+    if (options.keepLiveMain) {
+      const live = this.capture()
+      this.applySnapshot({ ...layout.snapshot, layout: live.layout, activePaneId: live.activePaneId })
+    } else this.applySnapshot(layout.snapshot)
     await this.setActive(layout.name, false)
     return layout
   }
@@ -364,12 +371,12 @@ export class WorkspaceStore {
    */
   async renameByName(oldName: string, newName: string): Promise<SavedLayout> {
     const prior = this.find(oldName)
-    if (!prior) throw new Error(`No saved layout named "${oldName}".`)
+    if (!prior) throw notApplied(`No saved layout named "${oldName}".`, 'NOT_FOUND')
     const next = newName.trim()
-    if (!next) throw new Error('A new name is required.')
+    if (!next) throw notApplied('A new name is required.', 'INVALID_INPUT')
     const clash = this.find(next)
     if (clash && clash.name.toLowerCase() !== prior.name.toLowerCase()) {
-      throw new Error(`A layout named "${next}" already exists.`)
+      throw notApplied(`A layout named "${next}" already exists.`, 'LAYOUT_EXISTS')
     }
     const renamed: SavedLayout = { ...prior, name: next, modifiedAt: Date.now() }
     const wasActive = this.active != null && this.active.toLowerCase() === prior.name.toLowerCase()

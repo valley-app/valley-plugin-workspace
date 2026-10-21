@@ -6,7 +6,7 @@ Layouts and groups are stored together in `.valley/plugins/data/workspace/worksp
 
 This repository owns the plugin’s interface, behavior, dependencies, schemas, tests, translations, and compiled releases. It uses Valley manifest API 5 and the injected SDK 6.
 
-Valley ships this core plugin as a verified release artifact in its application resources. Core and external installations run with the same sandbox, permissions, and SDK/IPC contract. The core package and its locale files are never installed into `.valley`; ordinary vault documents and saved plugin data retain their existing locations.
+Valley ships this core plugin as a verified release artifact in its application resources. Core and external installations run with the same sandbox, permissions, and SDK/IPC contract. The host's core deployment installs the core package and its locale files into `.valley/plugins/packages/core/`; ordinary vault documents and saved plugin data retain their existing locations.
 
 ## Package
 

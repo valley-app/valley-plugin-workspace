@@ -339,7 +339,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
     const command: PluginCommand<I, O, E> & { outputSchema: Record<string, unknown>; limits: Record<string, number> } = { ...definition, outputSchema, limits: { requestBytes: 1048576, responseBytes: 1048576 } }
     return api.commands.register(command)
   }
-  const revision = async () => { const store = live(); await store.ensureLoaded(); return { layouts: store.layouts, active: store.active, groups: store.groups() } }
+  const revision = async () => { const store = live(); await store.ensureLoaded(); return { active: store.active, layouts: store.layouts.map((l) => [l.name, l.group, l.modifiedAt]), groups: store.groupNames() } }
   /** Capture the current arrangement under `name` (overwrites + activates). */
   const saveNamed = register<SaveInput, SaveResult, 'write'>({
     id: 'save',
@@ -449,7 +449,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
         const store = live()
         await store.ensureLoaded()
         const target = store.find(name)
-        if (!target) throw new Error(`No saved layout named "${name}".`)
+        if (!target) throw notApplied(`No saved layout named "${name}".`, 'NOT_FOUND')
         // Undo restores every part a layout may carry, whatever this one saved.
         const priorSnapshot: WorkspaceLayoutSnapshot = store.capture(ALL_SCOPES)
         const priorActive = store.active
@@ -490,7 +490,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
         const store = live()
         await store.ensureLoaded()
         const target = store.find(name)
-        if (!target) throw new Error(`No saved layout named "${name}".`)
+        if (!target) throw notApplied(`No saved layout named "${name}".`, 'NOT_FOUND')
         const priorActive = store.active
         await store.deleteByName(target.name)
         return {

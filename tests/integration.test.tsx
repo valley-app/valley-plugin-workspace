@@ -1278,6 +1278,27 @@ describe('workspace contextual surfaces', () => {
   })
 })
 
+describe('command refusals and revisions', () => {
+  it('refuses unknown layout names as not-applied and keeps the write revision compact', async () => {
+    const { mock, off } = setup()
+    const store = getStore()!
+    await store.ensureLoaded()
+    const runs = commandRuns(mock)
+    const revisionOf = (vi.mocked(mock.api.commands.register).mock.calls.map(call => call[0] as { id: string; revision?: () => Promise<unknown> }).find(definition => definition.id === 'save'))!.revision!
+    for (const id of ['load', 'open', 'delete', 'close']) {
+      await expect(runs.get(id)!({ name: 'Absent fern' })).rejects.toMatchObject({ code: 'NOT_FOUND', outcome: 'not-applied' })
+    }
+    await expect(runs.get('rename')!({ name: 'Absent fern', to: 'Moss' })).rejects.toMatchObject({ code: 'NOT_FOUND', outcome: 'not-applied' })
+    vi.mocked(mock.api.workspace.captureLayout).mockReturnValue(snapshot('heavy', { activeTabId: 't0', tabs: Array.from({ length: 60 }, (_, i) => ({ id: `t${i}`, kind: 'file' as const, folderPath: `Survey/plot-${i}.md` })) }))
+    for (let i = 0; i < 40; i++) await store.saveCurrent(`Plot ${i}`)
+    const revision = JSON.stringify(await revisionOf())
+    expect(revision.length).toBeLessThan(4096)
+    expect(revision).not.toContain('plot-1.md')
+    off()
+    store.dispose()
+  })
+})
+
 describe('workspace defaults and missing plugins', () => {
   it('restores defaults on deselection and deletion of the active workspace', async () => {
     const mock = createMockValleyApi({ manifest: { id: 'workspace' } })
@@ -1292,6 +1313,24 @@ describe('workspace defaults and missing plugins', () => {
     expect(store.active).toBeNull()
     expect(mock.api.settings.get().active).toBe('')
     expect(mock.api.workspace.applyLayout).toHaveBeenLastCalledWith(null)
+    store.dispose()
+  })
+
+  it('restores the active layout at startup over the live main panes and tabs', async () => {
+    const mock = createMockValleyApi({ manifest: { id: 'workspace' } })
+    const saved: WorkspaceLayoutSnapshot = { ...snapshot('saved', { activeTabId: 'map', tabs: [{ id: 'map', kind: 'file', folderPath: 'Moss.md' }] }), activePaneId: 'saved', activePanel: 'search', leftSidebarWidth: 320, footerVisible: true, footerLayout: { left: ['vault'], right: ['time'], hidden: [] } }
+    await mock.api.data.files.writeTextGuarded('workspaces.json', JSON.stringify({ version: 1, layouts: [{ name: 'Fieldwork', group: '', snapshot: saved, createdAt: 1, modifiedAt: 1 }], groups: [] }), null)
+    await mock.api.settings.set('active', 'Fieldwork')
+    const live = { ...snapshot('live', { activeTabId: 'note', tabs: [{ id: 'note', kind: 'file', folderPath: 'Lichen.md' }] }), activePaneId: 'live' }
+    vi.mocked(mock.api.workspace.captureLayout).mockReturnValue(live)
+    const store = createStore(mock.api)
+    await store.ensureLoaded()
+    expect(store.active).toBe('Fieldwork')
+    expect(mock.api.workspace.applyLayout).toHaveBeenLastCalledWith(expect.objectContaining({
+      layout: live.layout, activePaneId: 'live', activePanel: 'search', leftSidebarWidth: 320, footerLayout: saved.footerLayout
+    }))
+    await store.loadByName('Fieldwork')
+    expect(mock.api.workspace.applyLayout).toHaveBeenLastCalledWith(expect.objectContaining({ layout: saved.layout, activePaneId: 'saved' }))
     store.dispose()
   })
 
