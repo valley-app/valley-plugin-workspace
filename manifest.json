@@ -2,7 +2,7 @@
   "apiVersion": 5,
   "id": "workspace",
   "name": "Workspace",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "description": "Save and restore named workspace layouts, including panes, tabs, sidebar widths, Icon Rail, and Footer Rail. Plugin panels are remembered without restoring their internal content.",
   "author": [
     "valley"

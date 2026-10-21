@@ -1297,6 +1297,25 @@ describe('command refusals and revisions', () => {
     off()
     store.dispose()
   })
+
+  it('refuses a whitespace-only rename as invalid input that changed nothing', async () => {
+    const { mock, api, off } = setup()
+    const store = getStore()!
+    await store.ensureLoaded()
+    await store.saveCurrent('Fern survey')
+    const before = await savedLayouts(api)
+    const rename = vi.mocked(mock.api.commands.register).mock.calls.map(call => call[0] as { id: string; input?: { parse(raw: unknown): unknown } }).find(definition => definition.id === 'rename')!
+    for (const raw of [{ name: 'Fern survey', to: '   ' }, { name: ' \t ', to: 'Moss survey' }]) {
+      expect(() => rename.input!.parse(raw)).toThrow(expect.objectContaining({ code: 'INVALID_INPUT', outcome: 'not-applied' }))
+    }
+    expect(rename.input!.parse({ name: ' Fern survey ', to: ' Moss survey ' })).toEqual({ name: 'Fern survey', to: 'Moss survey' })
+    expect(await api.commands.execute(`${NS}:rename`, { name: 'Fern survey', to: '   ' })).toMatchObject({ ok: false, error: { kind: 'invalid-input' } })
+    await expect(commandRuns(mock).get('rename')!({ name: 'Absent fern', to: 'Moss' })).rejects.toMatchObject({ code: 'NOT_FOUND', outcome: 'not-applied' })
+    expect(await savedLayouts(api)).toEqual(before)
+    expect(store.layouts.map(layout => layout.name)).toEqual(['Fern survey'])
+    off()
+    store.dispose()
+  })
 })
 
 describe('workspace defaults and missing plugins', () => {

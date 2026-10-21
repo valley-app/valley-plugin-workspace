@@ -516,7 +516,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
         const o = (raw ?? {}) as Record<string, unknown>
         const name = asStr(o.name).trim()
         const to = asStr(o.to).trim()
-        if (!name || !to) throw new Error('Usage: workspace rename "<old>" --to "<new>"')
+        if (!name || !to) throw notApplied('Usage: workspace rename "<old>" --to "<new>"', 'INVALID_INPUT')
         return { name, to }
       },
       // `workspace rename "<old>" --to "<new>"` or `workspace rename "<old>" "<new>"`.
