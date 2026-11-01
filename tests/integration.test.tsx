@@ -1318,6 +1318,35 @@ describe('command refusals and revisions', () => {
   })
 })
 
+describe('workspace command input refusals', () => {
+  it('refuses blank names in save, load, delete and group commands as not-applied invalid input', () => {
+    const { mock, off } = setup()
+    const definitions = vi.mocked(mock.api.commands.register).mock.calls.map(call => call[0] as { id: string; input?: { parse(raw: unknown): unknown } })
+    const parse = (id: string) => definitions.find(definition => definition.id === id)!.input!.parse
+    for (const id of ['save', 'load', 'open', 'delete', 'close', 'group-create', 'group-delete']) {
+      expect(() => parse(id)({ name: '  ' })).toThrow(expect.objectContaining({ code: 'INVALID_INPUT', outcome: 'not-applied' }))
+    }
+    for (const raw of [{ name: 'Alpha', to: ' ' }, { name: ' ', to: 'Beta' }]) {
+      expect(() => parse('group-rename')(raw)).toThrow(expect.objectContaining({ code: 'INVALID_INPUT', outcome: 'not-applied' }))
+    }
+    expect(parse('save')({ name: ' Fern ' })).toMatchObject({ name: 'Fern' })
+    off()
+    getStore()?.dispose()
+  })
+
+  it('refuses unknown layout names in store helpers as not-applied', async () => {
+    const mock = createMockValleyApi({ manifest: { id: 'workspace' } })
+    const store = createStore(mock.api)
+    await store.ensureLoaded()
+    await expect(store.loadByName('Absent')).rejects.toMatchObject({ code: 'NOT_FOUND', outcome: 'not-applied' })
+    await expect(store.duplicate('Absent', (base, n) => `${base} ${n}`)).rejects.toMatchObject({ code: 'NOT_FOUND', outcome: 'not-applied' })
+    await expect(store.setScope('Absent', 'footer', true)).rejects.toMatchObject({ code: 'NOT_FOUND', outcome: 'not-applied' })
+    await expect(store.replaceWithCurrent('Absent')).rejects.toMatchObject({ code: 'NOT_FOUND', outcome: 'not-applied' })
+    await expect(store.setGroup('Absent', 'Group')).rejects.toMatchObject({ code: 'NOT_FOUND', outcome: 'not-applied' })
+    store.dispose()
+  })
+})
+
 describe('workspace defaults and missing plugins', () => {
   it('restores defaults on deselection and deletion of the active workspace', async () => {
     const mock = createMockValleyApi({ manifest: { id: 'workspace' } })
@@ -1340,16 +1369,16 @@ describe('workspace defaults and missing plugins', () => {
     const saved: WorkspaceLayoutSnapshot = { ...snapshot('saved', { activeTabId: 'map', tabs: [{ id: 'map', kind: 'file', folderPath: 'Moss.md' }] }), activePaneId: 'saved', activePanel: 'search', leftSidebarWidth: 320, footerVisible: true, footerLayout: { left: ['vault'], right: ['time'], hidden: [] } }
     await mock.api.data.files.writeTextGuarded('workspaces.json', JSON.stringify({ version: 1, layouts: [{ name: 'Fieldwork', group: '', snapshot: saved, createdAt: 1, modifiedAt: 1 }], groups: [] }), null)
     await mock.api.settings.set('active', 'Fieldwork')
-    const live = { ...snapshot('live', { activeTabId: 'note', tabs: [{ id: 'note', kind: 'file', folderPath: 'Lichen.md' }] }), activePaneId: 'live' }
+    const live = { ...snapshot('live', { activeTabId: 'note', tabs: [{ id: 'note', kind: 'file', folderPath: 'Lichen.md' }] }), activePaneId: 'live', activePanel: 'bookmarks' }
     vi.mocked(mock.api.workspace.captureLayout).mockReturnValue(live)
     const store = createStore(mock.api)
     await store.ensureLoaded()
     expect(store.active).toBe('Fieldwork')
     expect(mock.api.workspace.applyLayout).toHaveBeenLastCalledWith(expect.objectContaining({
-      layout: live.layout, activePaneId: 'live', activePanel: 'search', leftSidebarWidth: 320, footerLayout: saved.footerLayout
+      layout: live.layout, activePaneId: 'live', activePanel: 'bookmarks', leftSidebarWidth: 320, footerLayout: saved.footerLayout
     }))
     await store.loadByName('Fieldwork')
-    expect(mock.api.workspace.applyLayout).toHaveBeenLastCalledWith(expect.objectContaining({ layout: saved.layout, activePaneId: 'saved' }))
+    expect(mock.api.workspace.applyLayout).toHaveBeenLastCalledWith(expect.objectContaining({ layout: saved.layout, activePaneId: 'saved', activePanel: 'search' }))
     store.dispose()
   })
 

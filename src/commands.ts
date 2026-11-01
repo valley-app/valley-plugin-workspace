@@ -363,7 +363,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
       parse: (raw) => {
         const o = (raw ?? {}) as Record<string, unknown>
         const name = asStr(o.name).trim()
-        if (!name) throw new Error('Usage: workspace save "<name>" [--group "<group>"] [--right-sidebar] [--icon-rail] [--footer]')
+        if (!name) throw notApplied('Usage: workspace save "<name>" [--group "<group>"] [--right-sidebar] [--icon-rail] [--footer]', 'INVALID_INPUT')
         return { name, group: asStr(o.group).trim(), rightSidebar: asBool(o.rightSidebar), iconRail: asBool(o.iconRail), footer: asBool(o.footer) }
       },
       fromCli: (args, flags) => ({
@@ -440,7 +440,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
         schema: { type: 'object', properties: { name: { type: 'string', minLength: 1 } }, required: ['name'], additionalProperties: false },
         parse: (raw) => {
           const name = asStr((raw as Record<string, unknown> | undefined)?.name).trim()
-          if (!name) throw new Error(`Usage: workspace ${verb} "<name>"`)
+          if (!name) throw notApplied(`Usage: workspace ${verb} "<name>"`, 'INVALID_INPUT')
           return { name }
         },
         fromCli: (args) => ({ name: args.join(' ').trim() })
@@ -481,7 +481,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
         schema: { type: 'object', properties: { name: { type: 'string', minLength: 1 } }, required: ['name'], additionalProperties: false },
         parse: (raw) => {
           const name = asStr((raw as Record<string, unknown> | undefined)?.name).trim()
-          if (!name) throw new Error(`Usage: workspace ${verb} "<name>"`)
+          if (!name) throw notApplied(`Usage: workspace ${verb} "<name>"`, 'INVALID_INPUT')
           return { name }
         },
         fromCli: (args) => ({ name: args.join(' ').trim() })
@@ -605,7 +605,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
       schema: { type: 'object', properties: { name: { type: 'string', minLength: 1 } }, required: ['name'], additionalProperties: false },
       parse: (raw) => {
         const name = asStr((raw as Record<string, unknown> | undefined)?.name).trim()
-        if (!name) throw new Error('Usage: workspace group-create "<group>"')
+        if (!name) throw notApplied('Usage: workspace group-create "<group>"', 'INVALID_INPUT')
         return { name }
       },
       fromCli: (args) => ({ name: args.join(' ').trim() })
@@ -639,7 +639,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
         const o = (raw ?? {}) as Record<string, unknown>
         const name = asStr(o.name).trim()
         const to = asStr(o.to).trim()
-        if (!name || !to) throw new Error('Usage: workspace group-rename "<old>" --to "<new>"')
+        if (!name || !to) throw notApplied('Usage: workspace group-rename "<old>" --to "<new>"', 'INVALID_INPUT')
         return { name, to }
       },
       fromCli: (args, flags) => ({
@@ -678,7 +678,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
       schema: { type: 'object', properties: { name: { type: 'string', minLength: 1 } }, required: ['name'], additionalProperties: false },
       parse: (raw) => {
         const name = asStr((raw as Record<string, unknown> | undefined)?.name).trim()
-        if (!name) throw new Error('Usage: workspace group-delete "<group>"')
+        if (!name) throw notApplied('Usage: workspace group-delete "<group>"', 'INVALID_INPUT')
         return { name }
       },
       fromCli: (args) => ({ name: args.join(' ').trim() })

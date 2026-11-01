@@ -278,7 +278,7 @@ export class WorkspaceStore {
   /** Copy a layout under the first free "<name> copy" name; the copy stays inactive. */
   async duplicate(name: string, copyLabel: (base: string, n: number) => string): Promise<SavedLayout> {
     const source = this.find(name)
-    if (!source) throw new Error(`No saved layout named "${name}".`)
+    if (!source) throw notApplied(`No saved layout named "${name}".`, 'NOT_FOUND')
     let n = 1
     let next = copyLabel(source.name, n)
     while (this.find(next)) next = copyLabel(source.name, ++n)
@@ -295,7 +295,7 @@ export class WorkspaceStore {
    */
   async setScope(name: string, scope: LayoutScope, included: boolean): Promise<SavedLayout> {
     const prior = this.find(name)
-    if (!prior) throw new Error(`No saved layout named "${name}".`)
+    if (!prior) throw notApplied(`No saved layout named "${name}".`, 'NOT_FOUND')
     const kept = projectSnapshot(prior.snapshot, { ...scopesOf(prior.snapshot), [scope]: included })
     const snapshot = included ? this.layoutState.withLivePart(kept, scope) : kept
     const next: SavedLayout = { ...prior, snapshot, modifiedAt: Date.now() }
@@ -306,18 +306,18 @@ export class WorkspaceStore {
   /** Re-capture any saved layout from the live workspace, keeping its parts and group. */
   replaceWithCurrent(name: string): Promise<SavedLayout> {
     const target = this.find(name)
-    if (!target) return Promise.reject(new Error(`No saved layout named "${name}".`))
+    if (!target) return Promise.reject(notApplied(`No saved layout named "${name}".`, 'NOT_FOUND'))
     return this.saveCurrent(target.name, target.group)
   }
 
   /**
    * Restore a saved layout into the live workspace (the panel's Load). The
-   * startup restore of the active layout keeps the main panes and tabs that the
+   * startup restore of the active layout keeps the main panes, tabs and left-sidebar panel that the
    * host already restored from its session and applies only the layout's chrome.
    */
   async loadByName(name: string, options: { keepLiveMain?: boolean } = {}): Promise<SavedLayout | null> {
     const target = this.find(name)
-    if (!target) throw new Error(`No saved layout named "${name}".`)
+    if (!target) throw notApplied(`No saved layout named "${name}".`, 'NOT_FOUND')
     const revision = ++this.loadRevision
     const checked = availableSnapshot(target.snapshot, await this.api.workspace.listPlugins())
     if (this.disposed || revision !== this.loadRevision) return null
@@ -336,7 +336,7 @@ export class WorkspaceStore {
     if (this.disposed || revision !== this.loadRevision) return null
     if (options.keepLiveMain) {
       const live = this.capture()
-      this.applySnapshot({ ...layout.snapshot, layout: live.layout, activePaneId: live.activePaneId })
+      this.applySnapshot({ ...layout.snapshot, layout: live.layout, activePaneId: live.activePaneId, ...(live.activePanel ? { activePanel: live.activePanel } : {}) })
     } else this.applySnapshot(layout.snapshot)
     await this.setActive(layout.name, false)
     return layout
@@ -393,7 +393,7 @@ export class WorkspaceStore {
   async setGroup(name: string, group: string): Promise<void> {
     const key = name.trim().toLowerCase()
     const idx = this.layouts.findIndex((l) => l.name.toLowerCase() === key)
-    if (idx === -1) throw new Error(`No saved layout named "${name}".`)
+    if (idx === -1) throw notApplied(`No saved layout named "${name}".`, 'NOT_FOUND')
     this.layouts = this.layouts.map((layout, index) => index === idx ? { ...layout, group: group.trim() } : layout)
     await this.persist()
   }
