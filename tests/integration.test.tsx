@@ -92,7 +92,7 @@ function scopedSnapshot(id: string): WorkspaceLayoutSnapshot {
     panelOrder: ['test-plugin', 'files'],
     hiddenPanelIds: ['search'],
     footerVisible: false,
-    footerLayout: { left: ['vault'], right: ['save'], hidden: ['player'] }
+    footerLayout: { left: ['realm'], right: ['save'], hidden: ['player'] }
   }
 }
 
@@ -115,7 +115,7 @@ describe('workspace scope settings and view-state providers', () => {
     vi.mocked(custom.api.workspace.captureLayout).mockReturnValue(scopedSnapshot('custom'))
     const customStore = createStore(custom.api)
     const projected = customStore.capture()
-    expect(projected).toMatchObject({ footerVisible: false, footerLayout: { left: ['vault'], right: ['save'], hidden: ['player'] } })
+    expect(projected).toMatchObject({ footerVisible: false, footerLayout: { left: ['realm'], right: ['save'], hidden: ['player'] } })
     expect(projected).not.toHaveProperty('railVisible')
     expect(projected).not.toHaveProperty('rightSidebarVisible')
     expect(projected).not.toHaveProperty('rightSidebarLayout')
@@ -128,7 +128,7 @@ describe('workspace scope settings and view-state providers', () => {
     await store.ensureLoaded()
     const rails = await store.saveCurrent('Rails', '', { rightSidebar: false, iconRail: true, footer: true })
     const plain = await store.saveCurrent('Plain', '', { rightSidebar: false, iconRail: false, footer: false })
-    expect(rails.snapshot).toMatchObject({ railVisible: false, footerLayout: { left: ['vault'], right: ['save'], hidden: ['player'] } })
+    expect(rails.snapshot).toMatchObject({ railVisible: false, footerLayout: { left: ['realm'], right: ['save'], hidden: ['player'] } })
     expect(rails.snapshot).not.toHaveProperty('rightSidebarLayout')
     expect(plain.snapshot).not.toHaveProperty('railVisible')
     expect(plain.snapshot).not.toHaveProperty('footerLayout')
@@ -155,7 +155,7 @@ describe('workspace scope settings and view-state providers', () => {
       railVisible: false,
       panelOrder: ['test-plugin', 'files'],
       footerVisible: false,
-      footerLayout: { left: ['vault'], right: ['save'], hidden: ['player'] }
+      footerLayout: { left: ['realm'], right: ['save'], hidden: ['player'] }
     }))
     expect(vi.mocked(mock.api.workspace.applyLayout).mock.lastCall?.[0]).not.toHaveProperty('rightSidebarLayout')
   })
@@ -675,7 +675,7 @@ describe('workspace plugin commands', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(getStore()?.find('Survey')).toBeDefined())
     const saved = getStore()!.find('Survey')!.snapshot
-    expect(saved).toMatchObject({ railVisible: false, footerLayout: { left: ['vault'], right: ['save'], hidden: ['player'] } })
+    expect(saved).toMatchObject({ railVisible: false, footerLayout: { left: ['realm'], right: ['save'], hidden: ['player'] } })
     expect(saved).not.toHaveProperty('rightSidebarLayout')
 
     // The toggles reset to the defaults after saving.
@@ -1223,7 +1223,7 @@ describe('workspace plugin commands', () => {
     vi.mocked(mock.api.workspace.captureLayout).mockReturnValue({
       ...snapshot('legacy'),
       footerVisible: true,
-      footerLayout: { left: ['vault'], right: [], hidden: [] }
+      footerLayout: { left: ['realm'], right: [], hidden: [] }
     })
     register(mock.api)
     await getStore()?.ensureLoaded()
@@ -1255,7 +1255,7 @@ describe('workspace plugin commands', () => {
     fireEvent.click(screen.getByRole('button', { name: /More actions for Legacy/ }))
     await act(async () => { await mock.menus.at(-1)?.find((item) => item.label === 'Includes')?.submenu?.[2].onSelect?.() })
     stored = getStore()?.find('Legacy')?.snapshot as unknown as Record<string, unknown>
-    expect(stored).toMatchObject({ footerVisible: true, footerLayout: { left: ['vault'], right: [], hidden: [] } })
+    expect(stored).toMatchObject({ footerVisible: true, footerLayout: { left: ['realm'], right: [], hidden: [] } })
     expect(await screen.findByTestId('workspace-scopes-Legacy')).toBeInTheDocument()
   })
 })
@@ -1366,7 +1366,7 @@ describe('workspace defaults and missing plugins', () => {
 
   it('restores the active layout at startup over the live main panes and tabs', async () => {
     const mock = createMockValleyApi({ manifest: { id: 'workspace' } })
-    const saved: WorkspaceLayoutSnapshot = { ...snapshot('saved', { activeTabId: 'map', tabs: [{ id: 'map', kind: 'file', folderPath: 'Moss.md' }] }), activePaneId: 'saved', activePanel: 'search', leftSidebarWidth: 320, footerVisible: true, footerLayout: { left: ['vault'], right: ['time'], hidden: [] } }
+    const saved: WorkspaceLayoutSnapshot = { ...snapshot('saved', { activeTabId: 'map', tabs: [{ id: 'map', kind: 'file', folderPath: 'Moss.md' }] }), activePaneId: 'saved', activePanel: 'search', leftSidebarWidth: 320, footerVisible: true, footerLayout: { left: ['realm'], right: ['time'], hidden: [] } }
     await mock.api.data.files.writeTextGuarded('workspaces.json', JSON.stringify({ version: 1, layouts: [{ name: 'Fieldwork', group: '', snapshot: saved, createdAt: 1, modifiedAt: 1 }], groups: [] }), null)
     await mock.api.settings.set('active', 'Fieldwork')
     const live = { ...snapshot('live', { activeTabId: 'note', tabs: [{ id: 'note', kind: 'file', folderPath: 'Lichen.md' }] }), activePaneId: 'live', activePanel: 'bookmarks' }
@@ -1394,7 +1394,7 @@ describe('workspace defaults and missing plugins', () => {
       { type: 'leaf', id: 'notes', activeTabId: 'note', tabs: [{ id: 'note', kind: 'file', folderPath: 'Canopy.md', pinned: true }] },
       { type: 'leaf', id: 'plugin', activeTabId: 'gone', tabs: [{ id: 'gone', kind: 'plugin', pluginId: 'test-plugin', folderPath: '' }] }
     ] }
-    saved.footerLayout = { left: ['vault', 'plugin:test-plugin'], right: ['time'], hidden: ['plugin:test-plugin'] }
+    saved.footerLayout = { left: ['realm', 'plugin:test-plugin'], right: ['time'], hidden: ['plugin:test-plugin'] }
     await store.upsert({ name: 'Survey', group: 'Examples', snapshot: saved, createdAt: 1, modifiedAt: 1 })
     let continueLoad!: (choice: string | null) => void
     vi.mocked(mock.api.ui.confirm).mockImplementationOnce(() => new Promise(resolve => { continueLoad = resolve }))
@@ -1411,7 +1411,7 @@ describe('workspace defaults and missing plugins', () => {
     expect(loaded?.snapshot).toMatchObject({
       activePanel: 'files', panelOrder: ['files'], hiddenPanelIds: ['search'], leftSidebarWidth: 260, rightSidebarWidth: 280,
       layout: { sizes: [0.65, 0.35], children: [ { tabs: [{ folderPath: 'Canopy.md', pinned: true }] }, { tabs: [], activeTabId: null } ] },
-      rightSidebarLayout: { tabs: [], activeTabId: null }, footerLayout: { left: ['vault'], right: ['time'], hidden: [] }
+      rightSidebarLayout: { tabs: [], activeTabId: null }, footerLayout: { left: ['realm'], right: ['time'], hidden: [] }
     })
     expect(store.find('Survey')?.group).toBe('Examples')
     expect((await savedLayouts(mock.api))[0].snapshot).toEqual(loaded?.snapshot)
