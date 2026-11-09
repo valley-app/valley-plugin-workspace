@@ -403,6 +403,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
   // active layout there's nothing to overwrite, so open the manager to name one.
   const saveActive = register<void, { name: string | null }, 'write'>({
     id: 'save-active',
+    menu: { group: 'layout', order: 10, label: 'Save Layout', labelKey: 'menu.saveLayout' },
     label: 'Workspace: Save current layout', labelKey: 'auto.2db7866c659c',
     paletteSafe: true,
     agentVisibility: 'forbidden',
@@ -570,6 +571,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
   // Deselecting restores the default sidebars and rails while keeping main tabs.
   const deselect = register<void, { name: string | null }, 'write'>({
     id: 'deselect',
+    menu: { group: 'layout', order: 30, label: 'Deselect Layout', labelKey: 'menu.deselectLayout' },
     label: 'Workspace: Deselect active layout', labelKey: 'auto.60d3a2f4832a',
     paletteSafe: true,
     sideEffect: 'write',
@@ -729,6 +731,7 @@ export function registerWorkspaceCommands(api: ValleyPluginApi): () => void {
 
   const manage = register({
     id: 'manage',
+    menu: { group: 'layout', order: 20, label: 'Manage Layouts…', labelKey: 'menu.manageLayouts' },
     label: 'Workspace: Manage workspace layouts', labelKey: 'auto.24c9b9b89804',
     sideEffect: 'read',
     run: () => {

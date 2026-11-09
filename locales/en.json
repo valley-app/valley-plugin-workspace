@@ -85,5 +85,8 @@
   "workspace.missing.message": "These plugins have been removed or no longer provide the saved panels: {{plugins}}. Continue to remove their references from this workspace. Other tabs and settings are kept.",
   "workspace.missing.continue": "Continue",
   "bookmark.view": "Workspace layout",
-  "bookmark.item": "Selected item"
+  "bookmark.item": "Selected item",
+  "menu.saveLayout": "Save Layout",
+  "menu.manageLayouts": "Manage Layouts…",
+  "menu.deselectLayout": "Deselect Layout"
 }

@@ -85,5 +85,8 @@
   "workspace.missing.message": "这些插件已被移除或不再提供已保存的面板：{{plugins}}。继续将从此工作区移除相关引用。其他标签页和设置将保留。",
   "workspace.missing.continue": "继续",
   "bookmark.view": "工作区布局",
-  "bookmark.item": "所选项目"
+  "bookmark.item": "所选项目",
+  "menu.saveLayout": "保存布局",
+  "menu.manageLayouts": "管理布局…",
+  "menu.deselectLayout": "取消选择布局"
 }

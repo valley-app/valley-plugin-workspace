@@ -85,5 +85,8 @@
   "workspace.missing.message": "Estos plugins se han eliminado o ya no ofrecen los paneles guardados: {{plugins}}. Continuar elimina sus referencias de este espacio de trabajo. Se conservan las demás pestañas y ajustes.",
   "workspace.missing.continue": "Continuar",
   "bookmark.view": "Diseño del espacio",
-  "bookmark.item": "Elemento seleccionado"
+  "bookmark.item": "Elemento seleccionado",
+  "menu.saveLayout": "Guardar diseño",
+  "menu.manageLayouts": "Gestionar diseños…",
+  "menu.deselectLayout": "Deseleccionar diseño"
 }

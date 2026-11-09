@@ -85,5 +85,8 @@
   "workspace.missing.message": "Diese Plugins wurden entfernt oder stellen die gespeicherten Ansichten nicht mehr bereit: {{plugins}}. Mit Weiter werden ihre Verweise aus diesem Arbeitsbereich entfernt. Andere Tabs und Einstellungen bleiben erhalten.",
   "workspace.missing.continue": "Weiter",
   "bookmark.view": "Arbeitsbereich-Layout",
-  "bookmark.item": "Ausgewählter Eintrag"
+  "bookmark.item": "Ausgewählter Eintrag",
+  "menu.saveLayout": "Layout speichern",
+  "menu.manageLayouts": "Layouts verwalten…",
+  "menu.deselectLayout": "Layout abwählen"
 }

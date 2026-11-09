@@ -85,5 +85,8 @@
   "workspace.missing.message": "Ces plugins ont été supprimés ou ne proposent plus les panneaux enregistrés : {{plugins}}. Continuer supprime leurs références de cet espace de travail. Les autres onglets et réglages sont conservés.",
   "workspace.missing.continue": "Continuer",
   "bookmark.view": "Disposition de l’espace",
-  "bookmark.item": "Élément sélectionné"
+  "bookmark.item": "Élément sélectionné",
+  "menu.saveLayout": "Enregistrer la disposition",
+  "menu.manageLayouts": "Gérer les dispositions…",
+  "menu.deselectLayout": "Désélectionner la disposition"
 }
