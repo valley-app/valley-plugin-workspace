@@ -118,6 +118,50 @@ export function storedSnapshot(raw: WorkspaceLayoutSnapshot): WorkspaceLayoutSna
   }
 }
 
+const extensionOf = (path: string): string => {
+  const name = path.slice(path.lastIndexOf('/') + 1)
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? name.slice(dot + 1).toLowerCase() : ''
+}
+
+/**
+ * The snapshot with every saved path under `oldPath` moved to `newPath`: file
+ * tabs, file history stops and per-file outline folds, in the main pane tree
+ * and the right sidebar, as the host moves open tabs; null when nothing points there.
+ */
+export function followRename(snapshot: WorkspaceLayoutSnapshot, oldPath: string, newPath: string): WorkspaceLayoutSnapshot | null {
+  const moved = (path: unknown): string | null => typeof path !== 'string' ? null : path === oldPath ? newPath : path.startsWith(`${oldPath}/`) ? newPath + path.slice(oldPath.length) : null
+  let changed = false
+  const tree = <T extends WorkspaceNode>(node: T): T => {
+    if (!node || typeof node !== 'object') return node
+    if (node.type === 'split') return Array.isArray(node.children) ? { ...node, children: node.children.map(tree) } : node
+    if (!Array.isArray(node.tabs)) return node
+    return {
+      ...node,
+      tabs: node.tabs.map((tab) => {
+        if (!tab || typeof tab !== 'object') return tab
+        const path = !tab.kind || tab.kind === 'file' ? moved(tab.folderPath) : null
+        const history = Array.isArray(tab.recentTargets) && tab.recentTargets.some(target => target && target.kind === 'file' && moved(target.folderPath) !== null)
+        const folds = tab.viewState?.outlineFolds && typeof tab.viewState.outlineFolds === 'object' ? tab.viewState.outlineFolds : null
+        const foldsMoved = folds !== null && Object.keys(folds).some(key => moved(key) !== null)
+        if (path === null && !history && !foldsMoved) return tab
+        changed = true
+        const next = { ...tab }
+        if (foldsMoved) next.viewState = { ...tab.viewState, outlineFolds: Object.fromEntries(Object.entries(folds!).map(([key, value]) => [moved(key) ?? key, value])) }
+        if (path !== null) {
+          next.folderPath = path
+          if (extensionOf(tab.folderPath) !== extensionOf(path)) delete next.viewState
+        }
+        if (history) next.recentTargets = tab.recentTargets!.map(target => target?.kind === 'file' ? { ...target, folderPath: moved(target.folderPath) ?? target.folderPath } : target)
+        return next
+      })
+    }
+  }
+  if (!snapshot || typeof snapshot !== 'object') return null
+  const next = { ...snapshot, layout: tree(snapshot.layout), ...(snapshot.rightSidebarLayout ? { rightSidebarLayout: tree(snapshot.rightSidebarLayout) } : {}) }
+  return changed ? next : null
+}
+
 export function availableSnapshot(snapshot: WorkspaceLayoutSnapshot, manifests: readonly ValleyPluginManifest[]): { snapshot: WorkspaceLayoutSnapshot; missing: string[] } {
   const installed = new Map(manifests.map(manifest => [manifest.id, manifest]))
   const missing = new Set<string>()

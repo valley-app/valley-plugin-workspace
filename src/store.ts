@@ -13,7 +13,7 @@
  */
 import type { ValleyPluginApi } from '@valley/plugin-sdk'
 import type { WorkspaceLayoutSnapshot } from '@valley/plugin-sdk/types'
-import { WorkspaceLayoutState, availableSnapshot, projectSnapshot, scopesOf, structuralSnapshotKey, type LayoutScope, type LayoutScopes } from './layoutState'
+import { WorkspaceLayoutState, availableSnapshot, followRename, projectSnapshot, scopesOf, structuralSnapshotKey, type LayoutScope, type LayoutScopes } from './layoutState'
 import { WorkspaceRepository, WORKSPACES_FILE, dedupeGroups, normalizeLayout, type SavedLayout } from './repository'
 export type { SavedLayout } from './repository'
 export { structuralSnapshotKey, layoutCounts, scopesOf, LAYOUT_SCOPES, type LayoutScope, type LayoutScopes } from './layoutState'
@@ -55,6 +55,10 @@ export class WorkspaceStore {
   private readonly listeners = new Set<() => void>()
   private readonly cleanups: (() => void)[] = []
   private readonly layoutState: WorkspaceLayoutState
+  private follows: Promise<void> | null = null
+  private early: { from: string; to: string }[] | null = null
+  private lastMoved: { before: SavedLayout; after: SavedLayout }[] = []
+  private followRetry: ReturnType<typeof setTimeout> | undefined
   private projection: {
     layouts: SavedLayout[]
     declaredGroups: string[]
@@ -71,11 +75,73 @@ export class WorkspaceStore {
     this.cleanups.push(api.settings.subscribe(() => this.notify()))
     const refresh = (): void => { if (this.loaded || this.refreshPromise) void this.refresh() }
     this.cleanups.push(api.data.files.onChanged(path => { if (path === WORKSPACES_FILE) refresh() }))
+    this.cleanups.push(api.files.onRenamed(({ oldPath, newPath }) => this.followRename(oldPath, newPath)))
+  }
+
+  /**
+   * An in-app rename or move: saved layouts open the file at its new path. The
+   * window's own list follows at once, in event order, and is saved guarded on
+   * the file this window last saw (see `WorkspaceRepository.follow`). Renames
+   * that arrive before the first read are applied once it finishes, unless a
+   * later one lands on a path an earlier one moved away: the read may already
+   * hold any number of them, so that chain is left to the window that saw it.
+   */
+  private followRename(oldPath: string, newPath: string): void {
+    const from = oldPath.replace(/^\/+|\/+$/g, ''), to = newPath.replace(/^\/+|\/+$/g, '')
+    if (this.disposed || !from || !to || from === to) return
+    if (this.early) { this.early.push({ from, to }); return }
+    if (this.loaded) { this.applyRename(from, to); return }
+    this.early = [{ from, to }]
+    this.follows = this.ensureLoaded().catch(() => {}).then(() => {
+      const queued = this.early ?? []
+      this.early = null
+      this.follows = null
+      const related = (left: string, right: string): boolean => left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`)
+      if (queued.some((event, index) => queued.slice(index + 1).some(later => related(later.to, event.from)))) {
+        console.warn('Workspace left renames made while it started to the window that saw them')
+        return
+      }
+      for (const event of queued) this.applyRename(event.from, event.to)
+    })
+  }
+
+  private applyRename(from: string, to: string): void {
+    if (this.disposed) return
+    const moved: { before: SavedLayout; after: SavedLayout }[] = []
+    const layouts = this.layouts.map((layout) => {
+      const snapshot = followRename(layout.snapshot, from, to)
+      if (!snapshot) return layout
+      const after = { ...layout, snapshot }
+      moved.push({ before: layout, after })
+      return after
+    })
+    if (!moved.length) return
+    this.layouts = layouts
+    this.lastMoved = moved
+    this.notify()
+    this.saveFollowed(0)
+  }
+
+  /** Settles the queued rename follows and their saves. @internal for tests */
+  async drainFollows(): Promise<void> {
+    while (this.follows) await this.follows
+    let pending: Promise<void>
+    do { pending = this.repository.pending; await pending } while (pending !== this.repository.pending)
+  }
+
+  private saveFollowed(attempt: number): void {
+    clearTimeout(this.followRetry)
+    void this.repository.follow(this.layouts, this.declaredGroups, this.lastMoved, () => !this.disposed).then((written) => {
+      if (written || this.disposed) return
+      if (attempt >= 2) { console.error('Workspace could not save saved layouts after a rename'); return }
+      this.followRetry = setTimeout(() => this.saveFollowed(attempt + 1), 2000)
+    })
   }
 
   dispose(): void {
     this.disposed = true
     this.loadRevision++
+    clearTimeout(this.followRetry)
     this.api.workspace.applyLayout(null)
     this.cleanups.splice(0).forEach((off) => off())
     this.listeners.clear()

@@ -90,6 +90,63 @@ export class WorkspaceRepository {
     })
   }
 
+  /**
+   * Save this window's list after it followed a rename, guarded on the file this
+   * window last saw. Every window follows the same renames in its own list, so a
+   * window in sync with the file writes it once. A window that is out of sync
+   * adopts the file only if it already holds the same list; otherwise it moves
+   * just the layouts whose saved value is still the one it had before this rename
+   * (`moved`), so a layout another window changed or already followed is left
+   * alone, and it stays out of sync, so its next save is refused as before.
+   * Resolves false when a write error left the file unchanged, true otherwise.
+   * The queue's failure state belongs to saves.
+   */
+  follow(layouts: SavedLayout[], groups: string[], moved: { before: SavedLayout; after: SavedLayout }[], live: () => boolean): Promise<boolean> {
+    let written = true
+    const stored = (layout: SavedLayout): SavedLayout => JSON.parse(JSON.stringify({ ...layout, snapshot: storedSnapshot(layout.snapshot) }))
+    const run = async (): Promise<void> => {
+      if (!live()) return
+      const captured: WorkspaceDocument = JSON.parse(JSON.stringify({ version: 1, layouts: layouts.map(stored), groups }))
+      if (!this.document) await this.read()
+      if (sameValue(this.document, captured)) return
+      this.revision++
+      let result = await this.api.data.files.writeTextGuarded(WORKSPACES_FILE, JSON.stringify(captured, null, 2) + '\n', this.baseline)
+      if (result.ok) {
+        this.baseline = result.baseline
+        this.document = captured
+        this.notify()
+        return
+      }
+      const pairs = moved.map(({ before, after }) => ({ before: stored(before), after: stored(after) }))
+      for (let attempt = 0; attempt < 3 && result.reason === 'conflict'; attempt++) {
+        const file = await this.api.data.files.readTextBaseline(WORKSPACES_FILE)
+        let disk: WorkspaceDocument
+        try { disk = parseDocument(file?.content ?? null) } catch { return }
+        if (!file) return
+        if (sameValue(disk, captured)) {
+          this.baseline = file.baseline
+          this.document = disk
+          return
+        }
+        let changed = false
+        const next = disk.layouts.map((layout) => {
+          const pair = pairs.find(entry => entry.before.name === layout.name)
+          if (!pair || !sameValue(layout, pair.before)) return layout
+          changed = true
+          return pair.after
+        })
+        if (!changed || !live()) return
+        this.revision++
+        result = await this.api.data.files.writeTextGuarded(WORKSPACES_FILE, JSON.stringify({ ...disk, layouts: next }, null, 2) + '\n', file.baseline)
+        if (result.ok) { this.notify(); return }
+      }
+      if (!result.ok && result.reason !== 'conflict') written = false
+    }
+    const next = this.pending.then(run, run)
+    this.pending = next.then(() => {}, () => {})
+    return next.then(() => written, () => false)
+  }
+
   reject(error: unknown): Promise<void> { return this.enqueue(async () => { throw error }) }
 
   private enqueue(run: () => Promise<void>): Promise<void> {
